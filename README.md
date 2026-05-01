@@ -117,25 +117,27 @@ Fraud reflects the most common PIX attack in Brazil: social engineering or accou
 | `saldo_anterior_recebedor` median | **R$22,152** | **R$440** |
 | `saldo_anterior_recebedor` IQR | R$11k – R$43k | R$151 – R$1,107 |
 
-### Multi-model validation (100k sample, class-balanced)
+### Multi-model validation (`05_validate.py` — 100k stratified sample, class-balanced)
 
 | Model | ROC-AUC | PR-AUC |
 |---|---|---|
 | Logistic Regression | 0.9926 | 0.5420 |
 | Random Forest | 0.9816 | 0.8221 |
 | Gradient Boosting | 0.9863 | 0.7622 |
-| XGBoost | 0.9933 | 0.8053 |
+| **XGBoost** | **0.9933** | **0.8053** |
 
-All four models exceed ROC-AUC 0.98 and PR-AUC 0.54. The gap between Logistic Regression and tree-based models in PR-AUC reflects the non-linear interaction between `saldo_anterior_recebedor` and `razao_saldo_residual`.
+All four models exceed ROC-AUC 0.98 and PR-AUC 0.54. The large gap between Logistic Regression (PR-AUC 0.54) and tree-based models (PR-AUC 0.80+) reveals non-linear interactions between `saldo_anterior_recebedor` and `razao_saldo_residual` that linear models cannot capture.
 
-**Feature importances (XGBoost, top):**
+**Feature importances (XGBoost gain, 200k stratified sample):**
 
 | Feature | Importance | Interpretation |
 |---|---|---|
-| `saldo_anterior_recebedor` | 68.1% | Mule accounts have ~50× lower balance than legitimate receivers |
-| `razao_saldo_residual` | 10.5% | Fraudulent senders nearly empty their accounts |
-| `saldo_anterior_pagador` | 5.7% | Supporting signal for sender profile |
-| `proporcao_valor_recebedor` | 3.1% | Transaction dominates mule account's total funds |
+| `saldo_anterior_recebedor` | **68.1%** | Mule accounts have ~50× lower balance than legitimate receivers (R$440 vs R$22k median) |
+| `razao_saldo_residual` | **10.5%** | Fraudulent senders empty ~92% of account vs 22% for legitimate |
+| `saldo_anterior_pagador` | 5.7% | Supporting signal — sender profile |
+| `proporcao_valor_recebedor` | 3.1% | Transaction dominates mule account's total inflow |
+
+The dominance of `saldo_anterior_recebedor` (68.1%) reflects the clean separation enforced by the balance generation methodology: mule account median R$440 vs legitimate account median R$22,152 (50× difference, KS=0.889).
 
 ---
 
@@ -155,7 +157,9 @@ Users should apply imbalanced learning techniques: `class_weight='balanced'`, SM
 
 ## Validation
 
-A comprehensive validation suite (`05_validate.py`) covers 41 checks across 6 categories: schema & integrity, balance consistency, BCB domain rules, statistical quality, synthetic fidelity, and ML validity. Results: **40 PASS, 0 FAIL, 1 WARN** (KS for `razao_saldo_residual` real vs synthetic = 0.104, marginally above threshold of 0.10 — base columns all pass with KS < 0.05).
+A comprehensive validation suite (`05_validate.py`) covers 41 checks across 6 categories: schema & integrity, balance consistency, BCB domain rules, statistical quality, synthetic fidelity, and ML validity. Results: **40 PASS, 0 FAIL, 1 WARN**.
+
+The single WARN is KS(`razao_saldo_residual`) real vs synthetic = **0.1037**, marginally above the 0.10 threshold. This is expected: `razao_saldo_residual` is a derived feature (`saldo_posterior / saldo_anterior`) with higher sensitivity to noise than its base columns. All base columns pass with KS < 0.05 (`valor_brl` KS=0.043, `saldo_anterior_pagador` KS=0.026, `saldo_anterior_recebedor` KS=0.023).
 
 ---
 
@@ -195,12 +199,14 @@ Derived from [PaySim Synthetic Financial Dataset](https://www.kaggle.com/dataset
 ## Citation
 
 ```bibtex
-@dataset{messina2025pixfraudbr,
+@dataset{messina2026pixfraudbr,
   author    = {Messina, André},
   title     = {PIX Fraud BR: Synthetic Brazilian PIX Fraud Detection Dataset},
-  year      = {2025},
+  year      = {2026},
   publisher = {Hugging Face},
   url       = {https://huggingface.co/datasets/andremessina/pix-fraud-br},
   note      = {Derived from PaySim (Lopez-Rojas et al., 2016). Balance columns regenerated synthetically.}
 }
 ```
+
+**Related project:** [ibm-pix-fraud-detection](https://github.com/devdebdeb/ibm-pix-fraud-detection) — end-to-end fraud detection pipeline on IBM Cloud using this dataset (Db2, watsonx.ai AutoAI, SHAP explainability).
