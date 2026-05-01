@@ -117,14 +117,18 @@ Fraud reflects the most common PIX attack in Brazil: social engineering or accou
 | `saldo_anterior_recebedor` median | **R$22,152** | **R$440** |
 | `saldo_anterior_recebedor` IQR | R$11k – R$43k | R$151 – R$1,107 |
 
-### XGBoost validation (200k sample, `scale_pos_weight`)
+### Multi-model validation (100k sample, class-balanced)
 
-| Metric | Score |
-|---|---|
-| ROC-AUC | 0.9950 |
-| PR-AUC | 0.8646 |
+| Model | ROC-AUC | PR-AUC |
+|---|---|---|
+| Logistic Regression | 0.9926 | 0.5420 |
+| Random Forest | 0.9816 | 0.8221 |
+| Gradient Boosting | 0.9863 | 0.7622 |
+| XGBoost | 0.9933 | 0.8053 |
 
-**Feature importances (top):**
+All four models exceed ROC-AUC 0.98 and PR-AUC 0.54. The gap between Logistic Regression and tree-based models in PR-AUC reflects the non-linear interaction between `saldo_anterior_recebedor` and `razao_saldo_residual`.
+
+**Feature importances (XGBoost, top):**
 
 | Feature | Importance | Interpretation |
 |---|---|---|
@@ -146,6 +150,12 @@ The 0.77% fraud rate is intentional — realistic fraud rates in payment systems
 | **PIX Fraud BR** | **0.77%** |
 
 Users should apply imbalanced learning techniques: `class_weight='balanced'`, SMOTE, threshold tuning, and evaluate with **PR-AUC** rather than accuracy.
+
+---
+
+## Validation
+
+A comprehensive validation suite (`05_validate.py`) covers 41 checks across 6 categories: schema & integrity, balance consistency, BCB domain rules, statistical quality, synthetic fidelity, and ML validity. Results: **40 PASS, 0 FAIL, 1 WARN** (KS for `razao_saldo_residual` real vs synthetic = 0.104, marginally above threshold of 0.10 — base columns all pass with KS < 0.05).
 
 ---
 
